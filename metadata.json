@@ -1,0 +1,7 @@
+{
+  "name": "DonorScout AI",
+  "description": "An intelligent donor discovery platform for nonprofits that uses real-time web search to find matching foundations, corporate sponsors, and major donors by region and sector.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
