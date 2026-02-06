@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { Layout } from './components/Layout';
 import { SearchPanel } from './components/SearchPanel';
 import { DonorList } from './components/DonorList';
