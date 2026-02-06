@@ -18,13 +18,23 @@ export interface LoginActivity {
   isCurrent: boolean;
 }
 
+export interface DebugLog {
+  id: string;
+  timestamp: string;
+  method: string;
+  payload: any;
+  response: any;
+  latency: number;
+  status: 'success' | 'error';
+}
+
 export interface DonorLead {
   name: string;
   type: 'Foundation' | 'Corporate' | 'Individual' | 'Government';
   relevanceScore: number;
   description: string;
   focusAreas: string[];
-  email: string; // Added email field
+  email: string;
 }
 
 export interface DraftProposal {

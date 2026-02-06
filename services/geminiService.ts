@@ -1,12 +1,24 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { SearchResult, NonprofitCategory, VerificationInfo, GroundingSource, NonprofitProjectInfo, DonorLead } from "../types";
+import { SearchResult, NonprofitCategory, VerificationInfo, GroundingSource, NonprofitProjectInfo, DonorLead, DebugLog } from "../types";
+
+// Intelligence Bus for Debugging
+const broadcastDebug = (log: Omit<DebugLog, 'id' | 'timestamp'>) => {
+  const event = new CustomEvent('donor-scout-debug', {
+    detail: {
+      ...log,
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toLocaleTimeString()
+    }
+  });
+  window.dispatchEvent(event);
+};
 
 export const findDonors = async (
   category: NonprofitCategory | string,
   region: string
 ): Promise<SearchResult> => {
-  // Use process.env.API_KEY directly as per guidelines
+  const startTime = Date.now();
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `Research and find potential major donors, foundations, and corporate social responsibility (CSR) programs that support "${category}" initiatives in the region of "${region}". 
@@ -27,7 +39,6 @@ export const findDonors = async (
     });
 
     const text = response.text || "No analysis available.";
-    
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources = groundingChunks
       .filter(chunk => chunk.web)
@@ -36,7 +47,6 @@ export const findDonors = async (
         uri: chunk.web?.uri || '#'
       }));
 
-    // Explicitly typing mock leads to ensure compatibility with DonorLead interface
     const leads: DonorLead[] = [
       { 
         name: "Global Giving Foundation", 
@@ -64,13 +74,23 @@ export const findDonors = async (
       },
     ];
 
-    return {
-      analysis: text,
-      leads,
-      sources
-    };
-  } catch (error) {
-    console.error("Error fetching donors:", error);
+    broadcastDebug({
+      method: 'findDonors',
+      payload: { category, region, prompt },
+      response: { text, leads, sourcesCount: sources.length },
+      latency: Date.now() - startTime,
+      status: 'success'
+    });
+
+    return { analysis: text, leads, sources };
+  } catch (error: any) {
+    broadcastDebug({
+      method: 'findDonors',
+      payload: { category, region },
+      response: error.message,
+      latency: Date.now() - startTime,
+      status: 'error'
+    });
     throw error;
   }
 };
@@ -80,6 +100,7 @@ export const verifyNonprofit = async (
   regId: string,
   region: string
 ): Promise<VerificationInfo> => {
+  const startTime = Date.now();
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `Verify the registration status and non-profit credentials for an organization named "${name}" with registration/EIN number "${regId}" in the region "${region}". 
@@ -106,7 +127,7 @@ export const verifyNonprofit = async (
 
     const status: 'Verified' | 'Unverified' = text.toLowerCase().includes('good standing') || text.toLowerCase().includes('active') ? 'Verified' : 'Unverified';
 
-    return {
+    const result = {
       status,
       officialName: name,
       registrationId: regId,
@@ -115,8 +136,24 @@ export const verifyNonprofit = async (
       verificationSources: sources,
       summary: text
     };
-  } catch (error) {
-    console.error("Error verifying nonprofit:", error);
+
+    broadcastDebug({
+      method: 'verifyNonprofit',
+      payload: { name, regId, region },
+      response: result,
+      latency: Date.now() - startTime,
+      status: 'success'
+    });
+
+    return result;
+  } catch (error: any) {
+    broadcastDebug({
+      method: 'verifyNonprofit',
+      payload: { name, regId },
+      response: error.message,
+      latency: Date.now() - startTime,
+      status: 'error'
+    });
     throw error;
   }
 };
@@ -127,30 +164,38 @@ export const generateOutreachDraft = async (
   donorFocus: string[],
   nonprofitSector: string
 ): Promise<string> => {
+  const startTime = Date.now();
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `Write a professional and compelling outreach email draft for a nonprofit in the "${nonprofitSector}" sector seeking a partnership or grant from "${donorName}" (${donorType}).
-  The donor is known for focusing on: ${donorFocus.join(', ')}.
-  
-  The draft should:
-  1. Have a clear, engaging subject line.
-  2. Reference the donor's specific focus areas.
-  3. Be concise and goal-oriented.
-  4. Use a collaborative tone.
-  5. Include placeholders for [Nonprofit Name] and [Specific Project].`;
+  The donor is known for focusing on: ${donorFocus.join(', ')}.`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
-      config: {
-        temperature: 0.8,
-      }
+      config: { temperature: 0.8 }
     });
 
-    return response.text || "Failed to generate draft.";
-  } catch (error) {
-    console.error("Error generating outreach draft:", error);
+    const result = response.text || "Failed to generate draft.";
+
+    broadcastDebug({
+      method: 'generateOutreachDraft',
+      payload: { donorName, donorType },
+      response: result,
+      latency: Date.now() - startTime,
+      status: 'success'
+    });
+
+    return result;
+  } catch (error: any) {
+    broadcastDebug({
+      method: 'generateOutreachDraft',
+      payload: { donorName },
+      response: error.message,
+      latency: Date.now() - startTime,
+      status: 'error'
+    });
     throw error;
   }
 };
@@ -159,27 +204,10 @@ export const generateGrantProposal = async (
   donor: DonorLead,
   project: NonprofitProjectInfo
 ): Promise<string> => {
+  const startTime = Date.now();
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // prompt now correctly accesses project.nonprofitName and project.mission as defined in types.ts
-  const prompt = `Act as a professional grant writer. Write a comprehensive grant proposal for "${project.nonprofitName}" directed to "${donor.name}" (${donor.type}).
-  
-  The donor focuses on: ${donor.focusAreas.join(', ')}.
-  The nonprofit's mission: ${project.mission}
-  The specific project: "${project.projectTitle}"
-  Goals: ${project.projectGoals}
-  Amount Requested: ${project.amountRequested}
-  Timeline: ${project.timeline}
-  
-  The proposal must include:
-  1. Executive Summary
-  2. Organizational Mission and Alignment with Donor Goals
-  3. Problem Statement / Needs Assessment
-  4. Project Description and Methodology
-  5. Anticipated Impact and Outcomes
-  6. Sustainability Plan
-  
-  Maintain a highly professional, persuasive, and visionary tone. Ensure the alignment between the donor's stated focus and the project is explicitly highlighted.`;
+  const prompt = `Act as a professional grant writer. Write a comprehensive grant proposal for "${project.nonprofitName}" directed to "${donor.name}" (${donor.type}).`;
 
   try {
     const response = await ai.models.generateContent({
@@ -191,9 +219,25 @@ export const generateGrantProposal = async (
       }
     });
 
-    return response.text || "Failed to generate proposal.";
-  } catch (error) {
-    console.error("Error generating grant proposal:", error);
+    const result = response.text || "Failed to generate proposal.";
+
+    broadcastDebug({
+      method: 'generateGrantProposal',
+      payload: { donor: donor.name, project: project.projectTitle },
+      response: result,
+      latency: Date.now() - startTime,
+      status: 'success'
+    });
+
+    return result;
+  } catch (error: any) {
+    broadcastDebug({
+      method: 'generateGrantProposal',
+      payload: { donor: donor.name },
+      response: error.message,
+      latency: Date.now() - startTime,
+      status: 'error'
+    });
     throw error;
   }
 };
