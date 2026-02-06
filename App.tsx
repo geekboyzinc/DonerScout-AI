@@ -13,6 +13,7 @@ import { DebugPanel } from './components/DebugPanel';
 import { findDonors } from './services/geminiService';
 import { SearchResult, AppView, NonprofitProfile, User, DraftProposal } from './types';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 const LeadSkeleton = () => (
   <div className="bg-white rounded-[1.5rem] border border-slate-200/60 p-8 shadow-sm animate-pulse">
@@ -176,6 +177,7 @@ const App: React.FC = () => {
       </Layout>
       <DebugPanel />
       <Analytics />
+      <SpeedInsights />
     </>
   );
 };
