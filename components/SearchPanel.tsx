@@ -38,9 +38,17 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, isLoading })
             </label>
             {!useCustom ? (
               <div className="relative">
+                {/* Fixed: Moved side-effect from render to onChange handler */}
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'custom') {
+                      setUseCustom(true);
+                    } else {
+                      setCategory(val);
+                    }
+                  }}
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-slate-900 font-medium focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 outline-none transition-all appearance-none cursor-pointer"
                 >
                   {Object.values(NonprofitCategory).map((cat) => (
@@ -64,14 +72,16 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, isLoading })
                 />
                 <button 
                   type="button"
-                  onClick={() => setUseCustom(false)}
+                  onClick={() => {
+                    setUseCustom(false);
+                    setCategory(NonprofitCategory.ENVIRONMENT);
+                  }}
                   className="absolute right-4 top-4 text-slate-300 hover:text-slate-600 transition-colors p-1"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
             )}
-            {category === 'custom' && !useCustom && setUseCustom(true)}
           </div>
 
           <div className="group">
